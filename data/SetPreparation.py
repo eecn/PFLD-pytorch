@@ -167,7 +167,7 @@ class ImageDate():
             for index in TRACKED_POINTS:
                 euler_angles_landmark.append(lanmark[index])
             euler_angles_landmark = np.asarray(euler_angles_landmark).reshape((-1, 28))
-            pitch, yaw, roll = calculate_pitch_yaw_roll(euler_angles_landmark[0]) # 计算图像14个关键点相对于标准三位人脸的相对位姿
+            pitch, yaw, roll = calculate_pitch_yaw_roll(euler_angles_landmark[0]) # 根据人脸14个关键点计算相对于标准三位人脸的相对位姿
             euler_angles = np.asarray((pitch, yaw, roll), dtype=np.float32)
             euler_angles_str = ' '.join(list(map(str, euler_angles)))
 
