@@ -8,6 +8,8 @@ sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "..")))
 from pfld.utils import calculate_pitch_yaw_roll
 debug = False
 
+# 计算图像绕中心点旋转angle角度
+# 返回旋转矩阵以及旋转后的关键点坐标
 def rotate(angle, center, landmark):
     rad = angle * np.pi / 180.0
     alpha = np.cos(rad)
@@ -68,24 +70,24 @@ class ImageDate():
 
         center = (xy + wh/2).astype(np.int32)
         img = cv2.imread(self.path)
-        boxsize = int(np.max(wh)*1.2)
-        xy = center - boxsize//2
+        boxsize = int(np.max(wh)*1.2) # 关键点范围尺寸扩展1.2倍 裁剪为正方形
+        xy = center - boxsize//2 # 左上角
         x1, y1 = xy
-        x2, y2 = xy + boxsize
+        x2, y2 = xy + boxsize # 右下角
         height, width, _ = img.shape
-        dx = max(0, -x1)
+        dx = max(0, -x1) # 扩展出左上角边界 0, 0点
         dy = max(0, -y1)
         x1 = max(0, x1)
         y1 = max(0, y1)
 
-        edx = max(0, x2 - width)
+        edx = max(0, x2 - width) # 扩展出右下角边界 h, w
         edy = max(0, y2 - height)
         x2 = min(width, x2)
         y2 = min(height, y2)
 
-        imgT = img[y1:y2, x1:x2]
+        imgT = img[y1:y2, x1:x2] # 在0,0 height,width内
         if (dx > 0 or dy > 0 or edx > 0 or edy > 0):
-            imgT = cv2.copyMakeBorder(imgT, dy, edy, dx, edx, cv2.BORDER_CONSTANT, 0)
+            imgT = cv2.copyMakeBorder(imgT, dy, edy, dx, edx, cv2.BORDER_CONSTANT, 0) # 图像外延展
         if imgT.shape[0] == 0 or imgT.shape[1] == 0:
             imgTT = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
             for x, y in (self.landmark+0.5).astype(np.int32):
@@ -94,7 +96,10 @@ class ImageDate():
             if cv2.waitKey(0) == 27:
                 exit()
         imgT = cv2.resize(imgT, (self.image_size, self.image_size))
-        landmark = (self.landmark - xy)/boxsize
+        # 这里的landmark不是self.landmark 不改变原始的坐标
+        # 下面这一步放在resize前比较好 虽然不影响  因为 resize前的图像是正方形 关键点坐标为相对坐标 resize后也是正方形 关键点相对坐标不变
+        landmark = (self.landmark - xy)/boxsize # 更新扩展后的关键点坐标 绝对值-->相对值
+        # 所有的landmark的值在0到1之间的相对值
         assert (landmark >= 0).all(), str(landmark) + str([dx, dy])
         assert (landmark <= 1).all(), str(landmark) + str([dx, dy])
         self.imgs.append(imgT)
@@ -104,17 +109,18 @@ class ImageDate():
             while len(self.imgs) < repeat:
                 angle = np.random.randint(-30, 30)
                 cx, cy = center
+                # 旋转中心围绕图像中心随机移动一下
                 cx = cx + int(np.random.randint(-boxsize*0.1, boxsize*0.1))
                 cy = cy + int(np.random.randint(-boxsize * 0.1, boxsize * 0.1))
                 M, landmark = rotate(angle, (cx,cy), self.landmark)
-
+                # 图像进行扩展
                 imgT = cv2.warpAffine(img, M, (int(img.shape[1]*1.1), int(img.shape[0]*1.1)))
 
                 
-                wh = np.ptp(landmark, axis=0).astype(np.int32) + 1
-                size = np.random.randint(int(np.min(wh)), np.ceil(np.max(wh) * 1.25))
+                wh = np.ptp(landmark, axis=0).astype(np.int32) + 1 # 沿x y坐标最大值最小值之差+1
+                size = np.random.randint(int(np.min(wh)), np.ceil(np.max(wh) * 1.25)) # 随机裁剪 中心点不变 裁剪为正方形
                 xy = np.asarray((cx - size // 2, cy - size//2), dtype=np.int32)
-                landmark = (landmark - xy) / size
+                landmark = (landmark - xy) / size # 改为相对坐标
                 if (landmark < 0).any() or (landmark > 1).any():
                     continue
 
@@ -134,12 +140,13 @@ class ImageDate():
                 imgT = imgT[y1:y2, x1:x2]
                 if (dx > 0 or dy > 0 or edx >0 or edy > 0):
                     imgT = cv2.copyMakeBorder(imgT, dy, edy, dx, edx, cv2.BORDER_CONSTANT, 0)
-
+                # resize前的图像是正方形 关键点坐标为相对坐标 resize后也是正方形 关键点相对坐标不变
                 imgT = cv2.resize(imgT, (self.image_size, self.image_size))
 
                 if mirror is not None and np.random.choice((True, False)):
+                    # 左右镜像数据 关键点x坐标关于中心点对称
                     landmark[:,0] = 1 - landmark[:,0]
-                    landmark = landmark[mirror_idx]
+                    landmark = landmark[mirror_idx] # 图像坐标修改为镜像坐标序号
                     imgT = cv2.flip(imgT, 1)
                 self.imgs.append(imgT)
                 self.landmarks.append(landmark)
@@ -160,7 +167,7 @@ class ImageDate():
             for index in TRACKED_POINTS:
                 euler_angles_landmark.append(lanmark[index])
             euler_angles_landmark = np.asarray(euler_angles_landmark).reshape((-1, 28))
-            pitch, yaw, roll = calculate_pitch_yaw_roll(euler_angles_landmark[0])
+            pitch, yaw, roll = calculate_pitch_yaw_roll(euler_angles_landmark[0]) # 计算图像14个关键点相对于标准三位人脸的相对位姿
             euler_angles = np.asarray((pitch, yaw, roll), dtype=np.float32)
             euler_angles_str = ' '.join(list(map(str, euler_angles)))
 
