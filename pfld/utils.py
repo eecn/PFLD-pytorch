@@ -91,6 +91,7 @@ def vis_landmark(img_path, annotation, norm, point_num):
     line format: [img_name bbox_x1 bbox_y1  bbox_x2 bbox_y2 landmark_x1 landmark y1 ...]
     """
     # check point len
+    line = annotation
     assert len(line) == 1 + 4 + point_num * 2  # img_path + bbox + point_num*2
 
     img = cv2.imread(img_path)
