@@ -106,7 +106,7 @@ class PFLDInference(nn.Module):
         x = self.block3_2(x)
         x = self.block3_3(x)
         x = self.block3_4(x)
-        out1 = self.block3_5(x)
+        out1 = self.block3_5(x)# 64,28,28
 
         x = self.conv4_1(out1)
         x = self.conv5_1(x)
@@ -156,12 +156,17 @@ class AuxiliaryNet(nn.Module):
         return x
 
 
-# if __name__ == '__main__':
-#     input = torch.randn(1, 3, 112, 112)
-#     pfld_backbone = PFLDInference()
-#     auxiliarynet = AuxiliaryNet()
-#     features, landmarks = pfld_backbone(input)
-#     angle = auxiliarynet(features)
+if __name__ == '__main__':
+    input = torch.randn(1, 3, 112, 112)
+    pfld_backbone = PFLDInference()
+    auxiliarynet = AuxiliaryNet()
+    features, landmarks = pfld_backbone(input)
+    angle = auxiliarynet(features)
 
-#     print("angle.shape:{0:}, landmarks.shape: {1:}".format(
-#         angle.shape, landmarks.shape))
+    print("angle.shape:{0:}, landmarks.shape: {1:}".format(
+        angle.shape, landmarks.shape))
+
+    from torchsummary import summary
+
+    summary(pfld_backbone, (3, 112, 112))
+    summary(auxiliarynet, (64, 28, 28))
